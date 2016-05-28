@@ -1,0 +1,17 @@
+---
+
+# 'docker-compose.yml'.
+
+
+version: '2'
+
+
+services:
+  web:
+    image: registry.service.consul:5000/cs/hostnamehttpserver:$VERSION
+    network_mode: bridge
+    ports:
+    - '8080'
+    labels:
+    - SERVICE_8080_NAME=hostnamehttpserver
+    - SERVICE_TAGS=$VERSION

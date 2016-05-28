@@ -1,0 +1,25 @@
+---
+
+# 'docker-compose.yml'.
+
+
+version: '2'
+
+
+services:
+  registry:
+    hostname: registry
+    image: registry:2
+    restart: unless-stopped
+    network_mode: bridge
+    ports:
+    - '5000:5000'
+    volumes:
+    - /vagrant/ssl:/certs
+    - /home/vagrant/registry:/var/lib/registry
+    environment:
+    - REGISTRY_HTTP_TLS_CERTIFICATE=/certs/registry.service.consul.crt
+    - REGISTRY_HTTP_TLS_KEY=/certs/registry.service.consul.key
+    - 'constraint:node==vm1'
+    labels:
+    - SERVICE_NAME=registry

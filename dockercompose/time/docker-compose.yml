@@ -1,0 +1,20 @@
+---
+
+# 'docker-compose.yml'.
+
+
+version: '2'
+
+
+services:
+  time:
+    image: registry.service.consul:5000/cs/time:$VERSION
+    network_mode: bridge
+    ports:
+    - '9002'
+    environment:
+    - reschedule:on-node-failure
+    - PORT=9002
+    labels:
+    - SERVICE_9002_NAME=time
+    - SERVICE_TAGS=$VERSION
