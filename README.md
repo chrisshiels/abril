@@ -21,7 +21,7 @@ deployments of pools of semantic versioned microservices:
 
 
 Technologies used are Golang, Docker Engine, Consul, Registrator,
-Consul-template, HAProxy, Swarm, Docker-compose, Vagrant and libvirt.
+Consul-template, HAProxy, Swarm, Docker-compose, Vagrant and libvirt:
 
 - The date, time and web microservices are all coded in Golang.
 
@@ -37,13 +37,13 @@ Consul-template, HAProxy, Swarm, Docker-compose, Vagrant and libvirt.
 - This environment was constructed using Vagrant / libvirt-based virtual
   machines running CentOS 7.
 
-- Note that these notes are a work in progress generated during exploring
-  these technologies - everything here works but more work is required.
+Note that these notes are a work in progress generated during exploring
+these technologies - everything here works but more work is required.
 
 
 ## Scenario
 
-Test environment is as follows.
+Test environment is as follows:
 ```
 rothko$ cat /etc/redhat-release
 CentOS Linux release 7.2.1511 (Core)
