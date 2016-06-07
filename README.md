@@ -856,7 +856,7 @@ vm1$ curl -X PUT -d '{
   - http://sysadvent.blogspot.co.uk/2015/12/day-12-introduction-to-nomad.html
 
 
-# Historical notes
+# Other notes
 
 ## Docker overlay network support
 ```
@@ -932,4 +932,68 @@ backend backend-1.0.0.hostnamehttpserver.abril
 >> http://1.0.0.hostnamehttpserver.abril/haproxy?stats
 
 	- admin:admin
+```
+
+
+## docker import vs. CentOS
+```
+vm1$ sudo yum grouplist | less
+vm1$ sudo yum grouplist hidden | less
+
+vm1$ sudo mkdir /tmp/cs
+vm1$ cd /tmp/cs
+
+vm1$ sudo yum -y install yum-utils
+vm1$ sudo yumdownloader centos-release
+
+vm1$ mkdir /tmp/cs1
+vm1$ sudo rpm --root /tmp/cs1 --initdb
+vm1$ sudo rpm --root /tmp/cs1 \
+	-ivh /tmp/cs/centos-release-7-2.1511.el7.centos.2.10.x86_64.rpm
+
+vm1$ echo n | sudo yum --installroot /tmp/cs1 groupinstall Core
+.
+.
+Installed size: 580 M
+
+vm1$ echo n | sudo yum --installroot /tmp/cs1 groupinstall 'Minimal Install'
+.
+.
+Installed size: 580 M
+
+	- Looks like Core and Minimal Install are the same.
+
+
+vm1$ sudo yum -y --installroot /tmp/cs1 install bash coreutils yum
+.
+.
+Installed size: 245 M
+
+
+vm1$ sudo du -sh /tmp/cs1
+338M	/tmp/cs1
+
+vm1$ sudo yum --installroot /tmp/cs1 clean all
+
+vm1$ sudo du -sh /tmp/cs1
+276M	/tmp/cs1
+
+vm1$ sudo tar -cvf - -C /tmp/cs1 . | \
+	sudo docker import \
+		--change 'CMD /bin/bash' \
+		-m 'Hello' \
+		- abril/abrilcentos:7
+
+vm1$ sudo docker run -i -t --rm abril/abrilcentos:7
+
+
+- Note the image sizes:
+
+vm1$ sudo docker images abril/abrilcentos:7
+REPOSITORY          TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
+abril/abrilcentos   7                   35b9eb0a4039        11 minutes ago      264.9 MB
+
+vm1$ sudo docker images docker.io/centos:7
+REPOSITORY          TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
+docker.io/centos    7                   a65193109361        4 days ago          196.7 MB
 ```
