@@ -997,3 +997,70 @@ vm1$ sudo docker images docker.io/centos:7
 REPOSITORY          TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
 docker.io/centos    7                   a65193109361        4 days ago          196.7 MB
 ```
+
+
+## registry housekeeping
+
+Here I'm trying to delete images from a Docker registry but it's definitely
+a work in progress: functionality seems to be present but documentation is
+scarce...
+```
+vm1$ sudo docker run -d -i -t \
+	--name registry.docker --hostname registry.docker \
+	-p 5000:5000 \
+	-v /vagrant/ssl:/certs \
+	-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/vm1.crt \
+	-e REGISTRY_HTTP_TLS_KEY=/certs/vm1.key \
+	-e REGISTRY_STORAGE_DELETE_ENABLED=True \
+	registry:2
+
+
+vm1$ sudo docker tag nginx:latest vm1:5000/abril/nginx:latest
+vm1$ sudo docker push vm1:5000/abril/nginx:latest
+
+vm1$ sudo docker tag centos:5 vm1:5000/abril/centos:5
+vm1$ sudo docker push vm1:5000/abril/centos:5
+
+vm1$ sudo docker tag centos:6 vm1:5000/abril/centos:6
+vm1$ sudo docker push vm1:5000/abril/centos:6
+
+vm1$ sudo docker tag centos:7 vm1:5000/abril/centos:7
+vm1$ sudo docker push vm1:5000/abril/centos:7
+
+
+vm1$ curl -k https://vm1:5000/v2/_catalog
+{"repositories":["abril/centos","abril/nginx"]}
+
+vm1$ curl -k https://vm1:5000/v2/abril/centos/tags/list
+{"name":"abril/centos","tags":["5","7","6"]}
+
+vm1$ curl -k https://vm1:5000/v2/abril/nginx/tags/list
+{"name":"abril/nginx","tags":["latest"]}
+
+vm1$ curl -s -i -k https://vm1:5000/v2/abril/nginx/manifests/latest | \
+	grep 'Docker-Content-Digest:'
+Docker-Content-Digest: sha256:5f5da467b24604514e12e81bd787fc016c6f9ab0d12c643a6729bea548a09598
+
+
+vm1$ curl -X DELETE -k https://vm1:5000/v2/abril/nginx/manifests/sha256:5f5da467b24604514e12e81bd787fc016c6f9ab0d12c643a6729bea548a09598
+
+vm1$ sudo docker exec -i -t registry.docker \
+	/bin/registry garbage-collect /etc/docker/registry/config.yml
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/ef/ef78bdde5188d4bf6db6eb88152a1dbcc5025552e2233e245341bd0a17c97b3f  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/f9/f9aab620e612fe05a38ed1e5e705dbf3507eb82970e75482f7576101603593b4  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/30/30bb0892c6d86d9524ee7d577c05bb4d5c51846018a7c6db26119eb4b8ae28be  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/51/51d229e136d0acdb3db7fae7e02d07bcb9b6ffb9bcaac88cc26aaf0be8bea045  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/51/51f5c6a04d83efd2d45c5fd59537218924bc46705e3de6ffc8bc07b51481610b  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/5f/5f5da467b24604514e12e81bd787fc016c6f9ab0d12c643a6729bea548a09598  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/bc/bcd41daec8cc835577e660ddef75e655f6ff3742bad92c9c498d8eba097b512a  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+
+
+vm1$ curl -k https://vm1:5000/v2/_catalog
+{"repositories":["abril/centos","abril/nginx"]}
+
+vm1$ curl -k https://vm1:5000/v2/abril/centos/tags/list
+{"name":"abril/centos","tags":["5","7","6"]}
+
+vm1$ curl -k https://vm1:5000/v2/abril/nginx/tags/list
+{"name":"abril/nginx","tags":null}
+```
