@@ -1001,66 +1001,117 @@ docker.io/centos    7                   a65193109361        4 days ago          
 
 ## registry housekeeping
 
-Here I'm trying to delete images from a Docker registry but it's definitely
-a work in progress: functionality seems to be present but documentation is
-scarce...
+Very scarce documentation but it looks like it works...
+
+See:
+- https://docs.docker.com/registry/spec/api/
+- https://docs.docker.com/registry/garbage-collection/
+
+It looks like:
+- A repository is a collection of tags.
+- A tag is a reference to an image.
+- If no references to an image exist then it can be garbage collected.
 ```
+vm1$ cd /vagrant/dockercompose/registry/
+vm1$ /usr/local/docker-compose/bin/docker-compose -H tcp://vm1:3375 down
+
 vm1$ sudo docker run -d -i -t \
 	--name registry.docker --hostname registry.docker \
 	-p 5000:5000 \
 	-v /vagrant/ssl:/certs \
-	-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/vm1.crt \
-	-e REGISTRY_HTTP_TLS_KEY=/certs/vm1.key \
+	-e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/registry.service.consul.crt \
+	-e REGISTRY_HTTP_TLS_KEY=/certs/registry.service.consul.key \
 	-e REGISTRY_STORAGE_DELETE_ENABLED=True \
+	-l SERVICE_NAME=registry \
 	registry:2
 
 
-vm1$ sudo docker tag nginx:latest vm1:5000/abril/nginx:latest
-vm1$ sudo docker push vm1:5000/abril/nginx:latest
+vm1$ sudo docker pull centos:5
+vm1$ sudo docker tag centos:5 registry.service.consul:5000/abril/centos:5
+vm1$ sudo docker push registry.service.consul:5000/abril/centos:5
 
-vm1$ sudo docker tag centos:5 vm1:5000/abril/centos:5
-vm1$ sudo docker push vm1:5000/abril/centos:5
+vm1$ sudo docker pull centos:6
+vm1$ sudo docker tag centos:6 registry.service.consul:5000/abril/centos:6
+vm1$ sudo docker push registry.service.consul:5000/abril/centos:6
 
-vm1$ sudo docker tag centos:6 vm1:5000/abril/centos:6
-vm1$ sudo docker push vm1:5000/abril/centos:6
+vm1$ sudo docker pull centos:7
+vm1$ sudo docker tag centos:7 registry.service.consul:5000/abril/centos:7
+vm1$ sudo docker push registry.service.consul:5000/abril/centos:7
 
-vm1$ sudo docker tag centos:7 vm1:5000/abril/centos:7
-vm1$ sudo docker push vm1:5000/abril/centos:7
+vm1$ sudo docker pull nginx:latest
+vm1$ sudo docker tag nginx:latest registry.service.consul:5000/abril/nginx:latest
+vm1$ sudo docker push registry.service.consul:5000/abril/nginx:latest
 
 
-vm1$ curl -k https://vm1:5000/v2/_catalog
+vm1$ curl -k https://registry.service.consul:5000/v2/_catalog
 {"repositories":["abril/centos","abril/nginx"]}
 
-vm1$ curl -k https://vm1:5000/v2/abril/centos/tags/list
+vm1$ curl -k https://registry.service.consul:5000/v2/abril/centos/tags/list
 {"name":"abril/centos","tags":["5","7","6"]}
 
-vm1$ curl -k https://vm1:5000/v2/abril/nginx/tags/list
+vm1$ curl -k https://registry.service.consul:5000/v2/abril/nginx/tags/list
 {"name":"abril/nginx","tags":["latest"]}
 
-vm1$ curl -s -i -k https://vm1:5000/v2/abril/nginx/manifests/latest | \
+
+vm1$ curl -s -i -k \
+	-H 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
+	https://registry.service.consul:5000/v2/abril/centos/manifests/6 | \
 	grep 'Docker-Content-Digest:'
-Docker-Content-Digest: sha256:5f5da467b24604514e12e81bd787fc016c6f9ab0d12c643a6729bea548a09598
+Docker-Content-Digest: sha256:15951ff5ee11d4a7008a0e71afd61f52f22b4f95758a627a18d18dbc39012962
+
+vm1$ curl -i -X DELETE -k https://registry.service.consul:5000/v2/abril/centos/manifests/sha256:15951ff5ee11d4a7008a0e71afd61f52f22b4f95758a627a18d18dbc39012962
 
 
-vm1$ curl -X DELETE -k https://vm1:5000/v2/abril/nginx/manifests/sha256:5f5da467b24604514e12e81bd787fc016c6f9ab0d12c643a6729bea548a09598
+vm1$ curl -s -i -k \
+	-H 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
+	https://registry.service.consul:5000/v2/abril/nginx/manifests/latest | \
+	grep 'Docker-Content-Digest:'
+Docker-Content-Digest: sha256:af1103d3bd66af998db61c8862c56f02f76dfb556eb84ef58b2d699fbee62f0e
+
+vm1$ curl -i -X DELETE -k https://registry.service.consul:5000/v2/abril/nginx/manifests/sha256:af1103d3bd66af998db61c8862c56f02f76dfb556eb84ef58b2d699fbee62f0e
+
+
+vm1$ sudo docker exec registry.docker du -sh /var/lib/registry/
+285M	/var/lib/registry/
 
 vm1$ sudo docker exec -i -t registry.docker \
 	/bin/registry garbage-collect /etc/docker/registry/config.yml
-INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/ef/ef78bdde5188d4bf6db6eb88152a1dbcc5025552e2233e245341bd0a17c97b3f  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
-INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/f9/f9aab620e612fe05a38ed1e5e705dbf3507eb82970e75482f7576101603593b4  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
-INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/30/30bb0892c6d86d9524ee7d577c05bb4d5c51846018a7c6db26119eb4b8ae28be  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
-INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/51/51d229e136d0acdb3db7fae7e02d07bcb9b6ffb9bcaac88cc26aaf0be8bea045  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
-INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/51/51f5c6a04d83efd2d45c5fd59537218924bc46705e3de6ffc8bc07b51481610b  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
-INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/5f/5f5da467b24604514e12e81bd787fc016c6f9ab0d12c643a6729bea548a09598  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
-INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/bc/bcd41daec8cc835577e660ddef75e655f6ff3742bad92c9c498d8eba097b512a  go.version=go1.6.2 instance.id=5f0afd8d-5b9f-46ec-bed6-fe3259b90609
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/bc/bcd41daec8cc835577e660ddef75e655f6ff3742bad92c9c498d8eba097b512a  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/0d/0d409d33b27e47423b049f7f863faa08655a8c901749c2b25b93ca67d01a470d  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/15/15951ff5ee11d4a7008a0e71afd61f52f22b4f95758a627a18d18dbc39012962  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/51/51d229e136d0acdb3db7fae7e02d07bcb9b6ffb9bcaac88cc26aaf0be8bea045  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/51/51f5c6a04d83efd2d45c5fd59537218924bc46705e3de6ffc8bc07b51481610b  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/66/66b3168580025d6e9a4ee8353110d896a757ef4dd126eb95c03615ece891c250  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/6a/6a77ab6655b90cf85a0b353a0c4f631b3dcd5db251ce0da3a68357c4ee8cb45b  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+INFO[0000] Deleting blob: /docker/registry/v2/blobs/sha256/af/af1103d3bd66af998db61c8862c56f02f76dfb556eb84ef58b2d699fbee62f0e  go.version=go1.6.2 instance.id=eb9f5869-b318-4236-9312-0ed4df2111f5
+
+vm1$ sudo docker exec registry.docker du -sh /var/lib/registry/
+151M	/var/lib/registry/
 
 
-vm1$ curl -k https://vm1:5000/v2/_catalog
+vm1$ curl -k https://registry.service.consul:5000/v2/_catalog
 {"repositories":["abril/centos","abril/nginx"]}
 
-vm1$ curl -k https://vm1:5000/v2/abril/centos/tags/list
-{"name":"abril/centos","tags":["5","7","6"]}
+vm1$ curl -k https://registry.service.consul:5000/v2/abril/centos/tags/list
+{"name":"abril/centos","tags":["5","7"]}
 
-vm1$ curl -k https://vm1:5000/v2/abril/nginx/tags/list
+vm1$ curl -k https://registry.service.consul:5000/v2/abril/nginx/tags/list
 {"name":"abril/nginx","tags":null}
+
+
+vm2$ sudo docker pull registry.service.consul:5000/abril/centos:5
+
+	- Works - cool.
+
+vm2$ sudo docker pull registry.service.consul:5000/abril/centos:6
+
+	- Doesn't work - cool.
+
+vm2$ sudo docker pull registry.service.consul:5000/abril/centos:7
+
+	- Works - cool.
+
+vm2$ sudo docker pull registry.service.consul:5000/abril/nginx:latest
+
+	- Doesn't work - cool.
 ```
