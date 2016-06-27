@@ -830,6 +830,9 @@ vm1$ curl -X PUT -d '{
 
 # To do
 
+- Upcoming version 1.12:
+  - http://container-solutions.com/hail-new-docker-swarm/
+
 - engine:
   - Enable tls.
     https://docs.docker.com/engine/security/https/
